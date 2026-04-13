@@ -1,13 +1,16 @@
+# agents/orchestrator.py
+
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Optional
-from agents.for_agent      import run_for_agent
-from agents.against_agent  import run_against_agent
-from agents.judge_agent    import run_judge_agent
+from typing import TypedDict, Optional, List, Dict
+from agents.for_agent     import run_for_agent
+from agents.against_agent import run_against_agent
+from agents.judge_agent   import run_judge_agent
 
 
 # ── State schema ──────────────────────────────────────────
 class DebateState(TypedDict):
     topic            : str
+    all_chunks       : List[Dict]   # ← new: passed through entire graph
     for_argument     : Optional[str]
     against_argument : Optional[str]
     for_rebuttal     : Optional[str]
@@ -17,13 +20,19 @@ class DebateState(TypedDict):
 
 # ── Node functions ────────────────────────────────────────
 def for_node(state: DebateState) -> DebateState:
-    result = run_for_agent(state["topic"])
+    result = run_for_agent(
+        topic      = state["topic"],
+        all_chunks = state["all_chunks"]   # ← pass chunks
+    )
     state["for_argument"] = result["argument"]
     return state
 
 
 def against_node(state: DebateState) -> DebateState:
-    result = run_against_agent(state["topic"])
+    result = run_against_agent(
+        topic      = state["topic"],
+        all_chunks = state["all_chunks"]   # ← pass chunks
+    )
     state["against_argument"] = result["argument"]
     return state
 
@@ -33,12 +42,13 @@ def for_rebuttal_node(state: DebateState) -> DebateState:
     counter = state["against_argument"]
 
     result  = run_for_agent(
-        topic = f"""
+        topic      = f"""
         Topic: {topic}
         You already argued FOR this topic.
         Now rebut this AGAINST argument:
         {counter}
-        """
+        """,
+        all_chunks = state["all_chunks"]   # ← pass chunks
     )
     state["for_rebuttal"] = result["argument"]
     return state
@@ -49,12 +59,13 @@ def against_rebuttal_node(state: DebateState) -> DebateState:
     counter = state["for_argument"]
 
     result  = run_against_agent(
-        topic = f"""
+        topic      = f"""
         Topic: {topic}
         You already argued AGAINST this topic.
         Now rebut this FOR argument:
         {counter}
-        """
+        """,
+        all_chunks = state["all_chunks"]   # ← pass chunks
     )
     state["against_rebuttal"] = result["argument"]
     return state
@@ -76,11 +87,11 @@ def judge_node(state: DebateState) -> DebateState:
 def build_debate_graph():
     graph = StateGraph(DebateState)
 
-    graph.add_node("for_agent",            for_node)
-    graph.add_node("against_agent",        against_node)
-    graph.add_node("for_rebuttal",         for_rebuttal_node)
-    graph.add_node("against_rebuttal",     against_rebuttal_node)
-    graph.add_node("judge",                judge_node)
+    graph.add_node("for_agent",        for_node)
+    graph.add_node("against_agent",    against_node)
+    graph.add_node("for_rebuttal",     for_rebuttal_node)
+    graph.add_node("against_rebuttal", against_rebuttal_node)
+    graph.add_node("judge",            judge_node)
 
     graph.set_entry_point("for_agent")
     graph.add_edge("for_agent",        "against_agent")
@@ -93,10 +104,11 @@ def build_debate_graph():
 
 
 # ── Run ───────────────────────────────────────────────────
-def run_debate(topic: str) -> DebateState:
-    graph        = build_debate_graph()
+def run_debate(topic: str, all_chunks: List[Dict]) -> DebateState:
+    graph         = build_debate_graph()
     initial_state = DebateState(
         topic            = topic,
+        all_chunks       = all_chunks,   # ← injected here
         for_argument     = None,
         against_argument = None,
         for_rebuttal     = None,
@@ -104,9 +116,3 @@ def run_debate(topic: str) -> DebateState:
         verdict          = None
     )
     return graph.invoke(initial_state)
-
-
-if __name__ == "__main__":
-    result = run_debate("RAG is better than fine-tuning for enterprise LLMs")
-    print(result["verdict"])
-

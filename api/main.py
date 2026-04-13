@@ -1,3 +1,5 @@
+# api/main.py
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -10,11 +12,10 @@ load_dotenv()
 
 app = FastAPI(
     title   = "DebateRAG API",
-    version = "1.0.0"
+    version = "2.0.0"
 )
 
 
-# ── Request / Response schemas ────────────────────────────
 class DebateRequest(BaseModel):
     topic      : str
     max_papers : int = 15
@@ -29,17 +30,15 @@ class DebateResponse(BaseModel):
     verdict          : str
 
 
-# ── Health check ──────────────────────────────────────────
 @app.get("/")
 def health_check():
-    return {"status": "DebateRAG API is running"}
+    return {"status": "DebateRAG API v2 is running"}
 
 
-# ── Main debate endpoint ──────────────────────────────────
 @app.post("/debate", response_model=DebateResponse)
 def run_debate_endpoint(request: DebateRequest):
     try:
-        # Step 1 — fetch and index papers
+        # Step 1 — fetch papers (arxiv + wikipedia fallback)
         papers = fetch_papers(
             topic       = request.topic,
             max_results = request.max_papers
@@ -47,17 +46,20 @@ def run_debate_endpoint(request: DebateRequest):
         if not papers:
             raise HTTPException(
                 status_code = 404,
-                detail      = "No papers found for this topic"
+                detail      = "No sources found for this topic"
             )
 
+        # Step 2 — chunk + store in ChromaDB
         chunks = chunk_papers(papers)
         reset_collection()
         embed_and_store(chunks)
 
-        # Step 2 — run the full debate
-        result = run_debate(request.topic)
+        # Step 3 — run debate, passing chunks for hybrid search + reranking
+        result = run_debate(
+            topic      = request.topic,
+            all_chunks = chunks          # ← the key change
+        )
 
-        # Step 3 — return structured response
         return DebateResponse(
             topic            = result["topic"],
             for_argument     = result["for_argument"],
