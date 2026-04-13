@@ -94,18 +94,35 @@ def rerank(query: str, chunks: List[Dict], top_k: int = 5) -> List[Dict]:
 
 
 def retrieve_and_rerank(
-    query: str,
-    all_chunks: List[Dict],
-    top_k: int = 5
+    query      : str,
+    all_chunks : List[Dict],
+    top_k      : int = 5,
+    stance     : str = None   # ← new optional param
 ) -> List[Dict]:
     """
-    Full pipeline: hybrid search → cross-encoder rerank.
-    This is the only function agents should call.
+    Full pipeline: query rewriting → hybrid search → cross-encoder rerank.
     """
-    # Step 1 — get broad candidate set via hybrid search
-    candidates = hybrid_search(query, all_chunks, top_k=top_k * 2)
-    
-    # Step 2 — rerank candidates with cross-encoder
-    reranked = rerank(query, candidates, top_k=top_k)
-    
+    from RAG.query_rewriter import rewrite_query
+
+    # Step 1 — rewrite query into 3 optimized variants if stance provided
+    if stance:
+        queries = rewrite_query(topic=query, stance=stance)
+        print(f"[QueryRewriter] Rewritten queries: {queries}")
+    else:
+        queries = [query]
+
+    # Step 2 — hybrid search for each query, collect all candidates
+    all_candidates = []
+    seen_texts     = set()
+
+    for q in queries:
+        candidates = hybrid_search(q, all_chunks, top_k=top_k * 2)
+        for chunk in candidates:
+            key = chunk["text"][:100]
+            if key not in seen_texts:
+                seen_texts.add(key)
+                all_candidates.append(chunk)
+
+    # Step 3 — rerank the merged candidate pool
+    reranked = rerank(query, all_candidates, top_k=top_k)
     return reranked

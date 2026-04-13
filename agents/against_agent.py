@@ -37,7 +37,8 @@ def run_against_agent(topic: str, all_chunks: List[Dict]) -> Dict:
     chunks  = retrieve_and_rerank(
         query      = f"evidence against {topic}",
         all_chunks = all_chunks,
-        top_k      = 5
+        top_k      = 5, 
+        stance = "AGAINST"
     )
     context = build_context(chunks)
 
