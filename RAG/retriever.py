@@ -17,29 +17,33 @@ class Paper:
 
 # ── ArXiv Fetch ───────────────────────────────────────────
 def fetch_from_arxiv(topic: str, max_results: int = 15) -> List[Paper]:
-    client = arxiv.Client(
-        num_retries   = 5,
-        delay_seconds = 3.0
-    )
+    try:
+        client = arxiv.Client(
+            num_retries   = 3,
+            delay_seconds = 5.0    # increased from 3.0
+        )
 
-    search = arxiv.Search(
-        query       = topic,
-        max_results = max_results,
-        sort_by     = arxiv.SortCriterion.Relevance,
-    )
+        search = arxiv.Search(
+            query       = topic,
+            max_results = max_results,
+            sort_by     = arxiv.SortCriterion.Relevance,
+        )
 
-    papers = []
-    for result in client.results(search):
-        papers.append(Paper(
-            title     = result.title,
-            abstract  = result.summary,
-            authors   = [a.name for a in result.authors],
-            url       = result.entry_id,
-            paper_id  = result.get_short_id(),
-            source    = "arxiv"
-        ))
-    return papers
+        papers = []
+        for result in client.results(search):
+            papers.append(Paper(
+                title     = result.title,
+                abstract  = result.summary,
+                authors   = [a.name for a in result.authors],
+                url       = result.entry_id,
+                paper_id  = result.get_short_id(),
+                source    = "arxiv"
+            ))
+        return papers
 
+    except Exception as e:
+        print(f"[arxiv] Failed: {e}. Falling back to Wikipedia only.")
+        return []    # ← empty list triggers Wikipedia fallback automatically
 
 # ── Wikipedia Fetch ───────────────────────────────────────
 def fetch_from_wikipedia(topic: str, max_articles: int = 5) -> List[Paper]:

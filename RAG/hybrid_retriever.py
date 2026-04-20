@@ -9,21 +9,33 @@ from typing import List, Dict
 RERANKER = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 def bm25_search(query: str, all_chunks: List[Dict], top_k: int = 10) -> List[Dict]:
-    """
-    BM25 keyword search over in-memory chunks.
-    Returns top_k chunks ranked by BM25 score.
-    """
     tokenized_corpus = [chunk["text"].lower().split() for chunk in all_chunks]
     bm25 = BM25Okapi(tokenized_corpus)
     
     tokenized_query = query.lower().split()
     scores = bm25.get_scores(tokenized_query)
     
-    # Attach scores and sort
     scored = [(score, chunk) for score, chunk in zip(scores, all_chunks)]
     scored.sort(key=lambda x: x[0], reverse=True)
     
-    return [chunk for _, chunk in scored[:top_k]]
+    # ── normalize to match ChromaDB output format ──
+    normalized = []
+    for _, chunk in scored[:top_k]:
+        if "metadata" not in chunk:
+            chunk = {
+                "text"     : chunk["text"],
+                "score"    : 0.0,
+                "metadata" : {
+                    "title"    : chunk.get("title", "Unknown"),
+                    "authors"  : ", ".join(chunk["authors"]) if isinstance(chunk.get("authors"), list) else chunk.get("authors", "Unknown"),
+                    "url"      : chunk.get("url", ""),
+                    "paper_id" : chunk.get("paper_id", ""),
+                    "source"   : chunk.get("source", "arxiv"),
+                }
+            }
+        normalized.append(chunk)
+    
+    return normalized
 
 
 def hybrid_search(
