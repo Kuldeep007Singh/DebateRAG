@@ -4,7 +4,8 @@ from typing import List, Dict
 
 EMBED_MODEL = SentenceTransformer("BAAI/bge-large-en-v1.5")
 
-CLIENT = chromadb.PersistentClient(path = "./chromadb")
+import chromadb
+CLIENT = chromadb.Client()  # in-memory, safe for free tier
 COLLECTION = CLIENT.get_or_create_collection(
     name = "debate_papers", 
 )
@@ -14,12 +15,7 @@ def embed_and_store(chunks: List[Dict]) ->None:
     texts = [c["text"] for c in chunks]
     ids = [c["chunk_id"] for c in chunks]
 
-    metadatas = [{
-        "paper_id" : c["paper_id"], 
-        "title" : c["title"], 
-        "url" : c["url"], 
-        "authors" : ", ".join(c["authors"])
-    } for c in chunks]
+    metadatas = [c["metadata"] for c in chunks]
 
     embeddings = EMBED_MODEL.encode(
         texts, 
@@ -58,9 +54,13 @@ def query_vectorstore (query : str, n_results :int = 5)  -> List[Dict]:
 
     for i in range(len(results["documents"][0])):
         output.append({
-            "text" : results["documents"][0][i],
-            "metadata" : results["metadatas"][0][i],
-            "score" : 1 - results["distances"][0][i]
+            "chunk_id": results["ids"][0][i],
+
+            "text": results["documents"][0][i],
+
+            "metadata": results["metadatas"][0][i],
+
+            "score": 1 - results["distances"][0][i]
         })
     return output
 

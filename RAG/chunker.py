@@ -10,7 +10,7 @@ nltk.download("punkt_tab", quiet=True)
 
 def chunk_text(
     text       : str,
-    max_words  : int = 150,   # smaller chunks = more precise retrieval
+    max_words  : int = 60,   # smaller chunks = more precise retrieval
     overlap    : int = 1      # overlap in sentences, not words
 ) -> List[str]:
     """
@@ -48,13 +48,16 @@ def chunk_papers(papers: List[Paper]) -> List[Dict]:
 
         for i, chunk in enumerate(chunks):
             all_chunks.append({
-                "chunk_id" : f"{paper.paper_id}-chunk-{i}",
-                "text"     : chunk,
-                "paper_id" : paper.paper_id,
-                "title"    : paper.title,
-                "url"      : paper.url,
-                "authors"  : paper.authors,
-                "source"   : paper.source       # arxiv or wikipedia
+                "chunk_id": f"{paper.paper_id}-chunk-{i}",
+                "text": chunk,
+
+                "metadata": {
+                    "paper_id": paper.paper_id,
+                    "title": paper.title,
+                    "url": paper.url,
+                    "authors": paper.authors,
+                    "source": paper.source
+                }
             })
 
     return all_chunks

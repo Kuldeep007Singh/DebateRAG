@@ -3,6 +3,7 @@
 from groq import Groq
 from typing import List, Dict
 from RAG.hybrid_retriever import retrieve_and_rerank
+from agents.utils import build_context, call_groq_safe
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -14,23 +15,14 @@ You are a professional debate agent arguing FOR the given topic.
 Your job is to build a strong, evidence-based argument supporting the topic.
 Rules:
 - Every claim must reference the provided context chunks
-- Cite the paper title and authors for each claim
+- Cite sources using format: [Source: Paper Title, Authors]
 - Be concise, structured, and persuasive
 - Do not make up any facts outside the provided context
+
+Example citation:
+"RAG improves retrieval accuracy. [Source: Chen et al., 2023: Retrieval Augmented Generation for LLMs]"
 """
 
-def build_context(chunks: List[Dict]) -> str:
-    context = ""
-    for i, chunk in enumerate(chunks):
-        source = chunk["metadata"].get("source", "arxiv")
-        context += f"""
-[{i+1}] Title   : {chunk['metadata']['title']}
-     Authors : {chunk['metadata']['authors']}
-     Source  : {source}
-     URL     : {chunk['metadata']['url']}
-     Text    : {chunk['text']}
----"""
-    return context
 
 
 def run_for_agent(topic: str, all_chunks: List[Dict]) -> Dict:
@@ -58,17 +50,16 @@ Structure your response as:
 4. Evidence point 3 (with citation)
 5. Closing statement
 """
-    response = client.chat.completions.create(
-        model      = "llama-3.3-70b-versatile",
-        max_tokens = 1024,
-        messages   = [
+    response = call_groq_safe(
+        messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": user_message}
-        ]
+            {"role": "user", "content": user_message}
+        ],
+        max_tokens=600
     )
 
     return {
         "role"     : "FOR",
-        "argument" : response.choices[0].message.content,
+        "argument" : response,
         "chunks"   : chunks
     }

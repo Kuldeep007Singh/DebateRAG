@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: debaterag-api
+    env: python
+    region: oregon          # free tier region
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+  - type: web
+    name: debaterag-ui
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run frontend/app.py --server.port 10000 --server.address 0.0.0.0
+    envVars:
+      - key: API_BASE_URL
+        sync: false

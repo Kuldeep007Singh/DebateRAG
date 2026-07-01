@@ -5,8 +5,19 @@ import hashlib
 import json
 
 # Connect to local Redis server
-client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+import os
+from redis import Redis
+from urllib.parse import urlparse
 
+_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+_parsed = urlparse(_url)
+client = Redis(
+    host=_parsed.hostname,
+    port=_parsed.port or 6379,
+    password=_parsed.password,
+    decode_responses=True,
+    ssl=_url.startswith("rediss://")   # Redis Cloud uses rediss://
+)
 CACHE_TTL = 60 * 60 * 24  # 24 hours in seconds
 
 

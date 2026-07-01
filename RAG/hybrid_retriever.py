@@ -23,16 +23,24 @@ def bm25_search(query: str, all_chunks: List[Dict], top_k: int = 10) -> List[Dic
     for _, chunk in scored[:top_k]:
         if "metadata" not in chunk:
             chunk = {
-                "text"     : chunk["text"],
-                "score"    : 0.0,
-                "metadata" : {
-                    "title"    : chunk.get("title", "Unknown"),
-                    "authors"  : ", ".join(chunk["authors"]) if isinstance(chunk.get("authors"), list) else chunk.get("authors", "Unknown"),
-                    "url"      : chunk.get("url", ""),
-                    "paper_id" : chunk.get("paper_id", ""),
-                    "source"   : chunk.get("source", "arxiv"),
+                **chunk,
+
+                "score": 0.0,
+
+                "metadata": {
+                    "title": chunk.get("title", "Unknown"),
+
+                    "authors": ", ".join(chunk["authors"])
+                    if isinstance(chunk.get("authors"), list)
+                    else chunk.get("authors", "Unknown"),
+
+                    "url": chunk.get("url", ""),
+
+                    "paper_id": chunk.get("paper_id", ""),
+
+                    "source": chunk.get("source", "arxiv"),
                 }
-            }
+        }
         normalized.append(chunk)
     
     return normalized
@@ -58,12 +66,12 @@ def hybrid_search(
     # Build score maps keyed by chunk text (used as unique id proxy)
     dense_scores = {}
     for rank, chunk in enumerate(dense_results):
-        key = chunk["text"][:100]  # first 100 chars as key
+        key = chunk["chunk_id"] 
         dense_scores[key] = (1 / (rank + 1)) * dense_weight  # reciprocal rank
     
     bm25_scores = {}
     for rank, chunk in enumerate(bm25_results):
-        key = chunk["text"][:100]
+        key = chunk["chunk_id"]
         bm25_scores[key] = (1 / (rank + 1)) * bm25_weight
     
     # Merge — union of both result sets
@@ -72,7 +80,7 @@ def hybrid_search(
     # Build unified chunk map
     chunk_map = {}
     for chunk in dense_results + bm25_results:
-        key = chunk["text"][:100]
+        key = chunk["chunk_id"]
         if key not in chunk_map:
             chunk_map[key] = chunk
     
@@ -108,7 +116,7 @@ def rerank(query: str, chunks: List[Dict], top_k: int = 5) -> List[Dict]:
 def retrieve_and_rerank(
     query      : str,
     all_chunks : List[Dict],
-    top_k      : int = 5,
+    top_k      : int = 2,
     stance     : str = None   # ← new optional param
 ) -> List[Dict]:
     """
@@ -130,7 +138,7 @@ def retrieve_and_rerank(
     for q in queries:
         candidates = hybrid_search(q, all_chunks, top_k=top_k * 2)
         for chunk in candidates:
-            key = chunk["text"][:100]
+            key = chunk["chunk_id"]
             if key not in seen_texts:
                 seen_texts.add(key)
                 all_candidates.append(chunk)
