@@ -7,7 +7,7 @@ _EMBED_MODEL = None
 def get_embed_model():
     global _EMBED_MODEL
     if _EMBED_MODEL is None:
-        _EMBED_MODEL = SentenceTransformer("BAAI/bge-large-en-v1.5")
+        _EMBED_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
     return _EMBED_MODEL
 
 CLIENT = chromadb.Client()  # in-memory, safe for free tier
