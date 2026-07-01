@@ -2,9 +2,14 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict 
 
-EMBED_MODEL = SentenceTransformer("BAAI/bge-large-en-v1.5")
+_EMBED_MODEL = None
 
-import chromadb
+def get_embed_model():
+    global _EMBED_MODEL
+    if _EMBED_MODEL is None:
+        _EMBED_MODEL = SentenceTransformer("BAAI/bge-large-en-v1.5")
+    return _EMBED_MODEL
+
 CLIENT = chromadb.Client()  # in-memory, safe for free tier
 COLLECTION = CLIENT.get_or_create_collection(
     name = "debate_papers", 
@@ -17,7 +22,7 @@ def embed_and_store(chunks: List[Dict]) ->None:
 
     metadatas = [c["metadata"] for c in chunks]
 
-    embeddings = EMBED_MODEL.encode(
+    embeddings = get_embed_model().encode(
         texts, 
         normalize_embeddings = True, 
         show_progress_bar = True
@@ -39,7 +44,7 @@ def reset_collection() -> None:        # ← add here, after embed_and_store
     print("Collection reset.")
 
 def query_vectorstore (query : str, n_results :int = 5)  -> List[Dict]:
-    query_embedding = EMBED_MODEL.encode(
+    query_embedding = get_embed_model().encode(
         [query], 
         normalize_embeddings = True
     ).tolist()
